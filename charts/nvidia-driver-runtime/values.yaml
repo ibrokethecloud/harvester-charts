@@ -3,10 +3,10 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: rancher/harvester-nvidia-driver-toolkit
+  repository: gmehta3/nvidia-driver-toolkit
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: sle-micro-head
+  tag: dev
 
 imagePullSecrets: []
 nameOverride: ""
@@ -60,4 +60,4 @@ affinity:
           - "true"
 # http endpoint where nvidia kvm driver is hosted
 # this will be pulled and installed by the daemonset on runtime
-driverLocation: "HTTPENDPOINT/NVIDIA-Linux-x86_64-525.60.12-vgpu-kvm.run"
+driverLocation: "http://10.115.1.6/iso/vgpu/NVIDIA-Linux-x86_64-580.126.08-vgpu-kvm.run"

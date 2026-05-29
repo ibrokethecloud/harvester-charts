@@ -36,6 +36,30 @@ spec:
                 fieldPath: spec.nodeName
           - name: "DRIVER_LOCATION"
             value: "{{ .Values.driverLocation }}"
+          - name: ROOT
+            value: /usr/local/nvidia
+          - name: NVIDIA_CONTAINER_RUNTIME_MODES_CDI_DEFAULT_KIND
+            value: management.nvidia.com/gpu
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: void
+          - name: TOOLKIT_PID_FILE
+            value: /run/nvidia/toolkit/toolkit.pid
+          - name: CONTAINERD_SOCKET
+            value: /runtime/sock-dir/containerd.sock
+          - name: ACCEPT_NVIDIA_VISIBLE_DEVICES_ENVVAR_WHEN_UNPRIVILEGED
+            value: "false"
+          - name: ACCEPT_NVIDIA_VISIBLE_DEVICES_AS_VOLUME_MOUNTS
+            value: "true"
+          - name: RUNTIME
+            value: containerd
+          - name: CONTAINERD_RUNTIME_CLASS
+            value: nvidia
+          - name: RUNTIME_CONFIG
+            value: /runtime/config-dir/config.toml
+          - name: CONTAINERD_CONFIG
+            value: /runtime/config-dir/config.toml
+          - name: RUNTIME_SOCKET
+            value: /runtime/sock-dir/containerd.sock
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -52,6 +76,33 @@ spec:
               mountPath: /sys
             - name: lib-firmware
               mountPath: /lib/firmware
+            - mountPath: /run/mellanox/drivers/usr/src
+              mountPropagation: HostToContainer
+              name: mlnx-ofed-usr-src
+            - mountPath: /run/mellanox/drivers
+              mountPropagation: HostToContainer
+              name: run-mellanox-drivers
+            - mountPath: /run/nvidia
+              mountPropagation: Bidirectional
+              name: run-nvidia
+            - mountPath: /run/nvidia-fabricmanager
+              name: run-nvidia-fabricmanager
+            - mountPath: /run/nvidia-topologyd
+              name: run-nvidia-topologyd
+            - mountPath: /usr/local/nvidia
+              name: toolkit-install-dir
+            - mountPath: /usr/share/containers/oci/hooks.d
+              name: crio-hooks
+            - mountPath: /host
+              mountPropagation: HostToContainer
+              name: host-root
+              readOnly: true
+            - mountPath: /var/run/cdi
+              name: cdi-root
+            - mountPath: /runtime/config-dir/
+              name: containerd-config
+            - mountPath: /runtime/sock-dir/
+              name: containerd-socket              
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.affinity }}
@@ -76,3 +127,51 @@ spec:
           hostPath:
             path: /lib/firmware
             type: Directory
+        - hostPath:
+            path: /run/nvidia
+            type: DirectoryOrCreate
+          name: run-nvidia
+        - hostPath:
+            path: /run/nvidia-fabricmanager
+            type: DirectoryOrCreate
+          name: run-nvidia-fabricmanager
+        - hostPath:
+            path: /run/nvidia-topologyd
+            type: DirectoryOrCreate
+          name: run-nvidia-topologyd
+        - hostPath:
+            path: /run/mellanox/drivers/usr/src
+            type: DirectoryOrCreate
+          name: mlnx-ofed-usr-src
+        - hostPath:
+            path: /run/mellanox/drivers
+            type: DirectoryOrCreate
+          name: run-mellanox-drivers
+        - hostPath:
+            path: /usr/local/nvidia
+            type: ""
+          name: toolkit-install-dir
+        - hostPath:
+            path: /run/containers/oci/hooks.d
+            type: ""
+          name: crio-hooks
+        - hostPath:
+            path: /dev/char
+            type: ""
+          name: host-dev-char
+        - hostPath:
+            path: /var/run/cdi
+            type: DirectoryOrCreate
+          name: cdi-root
+        - hostPath:
+            path: /etc/containerd
+            type: DirectoryOrCreate
+          name: containerd-config
+        - hostPath:
+            path: /run/k3s/containerd
+            type: ""
+          name: containerd-socket
+        - hostPath:
+            path: /
+            type: ""
+          name: host-root          
