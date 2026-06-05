@@ -1,0 +1,37 @@
+apiVersion: v1
+data:
+  entrypoint.sh: |-
+    #!/bin/sh
+
+    export IS_HOST_DRIVER=false
+    export NVIDIA_DRIVER_ROOT=/run/nvidia/driver
+    export DRIVER_ROOT_CTR_PATH=/run/nvidia/driver
+    export NVIDIA_DEV_ROOT=/run/nvidia/driver
+    export DEV_ROOT_CTR_PATH=/run/nvidia/driver
+    mkdir -p /run/nvidia/toolkit
+
+    until [ -f /run/nvidia/driver/tmp/ready ]
+    do
+      echo "waiting for the driver to be marked ready"
+      sleep 5
+    done
+
+
+    # The below delay is a workaround for an issue affecting some versions
+    # of containerd starting with 1.6.9. Staring with containerd 1.6.9 we
+    # started seeing the toolkit container enter a crashloop whereby it
+    # would recieve a SIGTERM shortly after restarting containerd.
+    #
+    # Refer to the commit message where this workaround was implemented
+    # for additional details:
+    #   https://github.com/NVIDIA/gpu-operator/commit/963b8dc87ed54632a7345c1fcfe842f4b7449565
+    #
+    sleep 5
+
+    tail -f /dev/null
+    #exec nvidia-toolkit
+kind: ConfigMap
+metadata:
+  labels:
+    app: nvidia-container-toolkit-daemonset
+  name: nvidia-container-toolkit-entrypoint

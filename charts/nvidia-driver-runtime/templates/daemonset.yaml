@@ -27,15 +27,14 @@ spec:
       hostPID: true
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      containers:
-        - name: nvidia-driver-ctr
+      containers:  
+        - name: nvidia-container-toolkit
+          args:
+          - /bin/entrypoint.sh
+          command:
+          - /bin/sh
+          - -c            
           env:
-          - name: NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
-          - name: "DRIVER_LOCATION"
-            value: "{{ .Values.driverLocation }}"
           - name: ROOT
             value: /usr/local/nvidia
           - name: NVIDIA_CONTAINER_RUNTIME_MODES_CDI_DEFAULT_KIND
@@ -44,12 +43,21 @@ spec:
             value: void
           - name: TOOLKIT_PID_FILE
             value: /run/nvidia/toolkit/toolkit.pid
+          - name: NRI_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: CDI_ENABLED
+            value: "true"
+          - name: NVIDIA_RUNTIME_SET_AS_DEFAULT
+            value: "false"
+          - name: NVIDIA_CONTAINER_RUNTIME_MODE
+            value: cdi
+          - name: CRIO_CONFIG_MODE
+            value: config
           - name: CONTAINERD_SOCKET
             value: /runtime/sock-dir/containerd.sock
-          - name: ACCEPT_NVIDIA_VISIBLE_DEVICES_ENVVAR_WHEN_UNPRIVILEGED
-            value: "false"
-          - name: ACCEPT_NVIDIA_VISIBLE_DEVICES_AS_VOLUME_MOUNTS
-            value: "true"
           - name: RUNTIME
             value: containerd
           - name: CONTAINERD_RUNTIME_CLASS
@@ -58,16 +66,49 @@ spec:
             value: /runtime/config-dir/config.toml
           - name: CONTAINERD_CONFIG
             value: /runtime/config-dir/config.toml
+          - name: RUNTIME_DROP_IN_CONFIG
+            value: /runtime/config-dir.d/99-nvidia.toml
+          - name: RUNTIME_DROP_IN_CONFIG_HOST_PATH
+            value: /etc/containerd/conf.d/99-nvidia.toml
           - name: RUNTIME_SOCKET
-            value: /runtime/sock-dir/containerd.sock
-          - name: NVIDIA_CONTAINER_RUNTIME_DEBUG
-            value: /run/ctr.log
-          - name: NVIDIA_CONTAINER_RUNTIME_LOG_LEVEL
-            value: "debug"
-          - name: NVIDIA_CONTAINER_CLI_DEBUG
-            value: /run/cli.log
-          - name: CDI_ENABLED
-            value: "true"                                    
+            value: /runtime/sock-dir/containerd.sock                                
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: nvcr.io/nvidia/k8s/container-toolkit:v1.19.1
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          volumeMounts:
+          - mountPath: /bin/entrypoint.sh
+            name: nvidia-container-toolkit-entrypoint
+            readOnly: true
+            subPath: entrypoint.sh
+          - mountPath: /run/nvidia
+            name: run-nvidia
+          - mountPath: /usr/local/nvidia
+            name: toolkit-install-dir
+          - mountPath: /usr/share/containers/oci/hooks.d
+            name: crio-hooks
+          - mountPath: /host
+            mountPropagation: HostToContainer
+            name: host-root
+            readOnly: true
+          - mountPath: /var/run/cdi
+            name: cdi-root
+          - mountPath: /runtime/config-dir/
+            name: containerd-config
+          - mountPath: /runtime/config-dir.d/
+            name: containerd-drop-in-config
+          - mountPath: /runtime/sock-dir/
+            name: containerd-socket      
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}      
+        - name: nvidia-driver-ctr
+          env:
+          - name: NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
+          - name: "DRIVER_LOCATION"
+            value: "{{ .Values.driverLocation }}"                                
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -96,21 +137,7 @@ spec:
             - mountPath: /run/nvidia-fabricmanager
               name: run-nvidia-fabricmanager
             - mountPath: /run/nvidia-topologyd
-              name: run-nvidia-topologyd
-            - mountPath: /usr/local/nvidia
-              name: toolkit-install-dir
-            - mountPath: /usr/share/containers/oci/hooks.d
-              name: crio-hooks
-            - mountPath: /host
-              mountPropagation: HostToContainer
-              name: host-root
-              readOnly: true
-            - mountPath: /var/run/cdi
-              name: cdi-root
-            - mountPath: /runtime/config-dir/
-              name: containerd-config
-            - mountPath: /runtime/sock-dir/
-              name: containerd-socket              
+              name: run-nvidia-topologyd             
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.affinity }}
@@ -118,6 +145,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+        - configMap:
+            defaultMode: 448
+            name: nvidia-container-toolkit-entrypoint
+          name: nvidia-container-toolkit-entrypoint      
         - name: var-log
           hostPath:
             path: /var/log
@@ -182,4 +213,8 @@ spec:
         - hostPath:
             path: /
             type: ""
-          name: host-root          
+          name: host-root
+        - hostPath:
+            path: /etc/containerd/conf.d
+            type: DirectoryOrCreate
+          name: containerd-drop-in-config                    
