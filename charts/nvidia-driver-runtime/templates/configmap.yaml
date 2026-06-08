@@ -28,8 +28,8 @@ data:
     #
     sleep 5
 
-    tail -f /dev/null
-    #exec nvidia-toolkit
+    #tail -f /dev/null
+    exec nvidia-toolkit
 kind: ConfigMap
 metadata:
   labels:
